@@ -11,15 +11,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Job {
-  id        String         @id @default(uuid())
-  github    String         
-  status    String         @default("pending")
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  documentaion  Documentation?
+  id             String         @id @default(uuid())
+  githubUrl      String         
+  status         String         @default("pending")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  documentation  Documentation?
 
 }
 
