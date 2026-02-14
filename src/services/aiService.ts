@@ -27,7 +27,7 @@ Return ONLY valid JSON, no markdown formatting.`;
 
   try {
     const response = await axios.post(
-      'https://api.x.ai/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         model: 'llama-3.3-70b-versatile',
         messages: [
@@ -38,7 +38,7 @@ Return ONLY valid JSON, no markdown formatting.`;
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         },
       }
     );
@@ -54,7 +54,7 @@ Return ONLY valid JSON, no markdown formatting.`;
     throw new Error('Failed to parse AI response');
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new Error(`Grok API error: ${JSON.stringify(error.response?.data) || error.message}`);
+      throw new Error(`Groq API error: ${JSON.stringify(error.response?.data) || error.message}`);
     }
     throw error;
   }
