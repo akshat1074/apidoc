@@ -1,9 +1,8 @@
 import 'dotenv/config';
 import { documentationQueue } from './config/queue';
 import prisma from './config/database';
-import { getRepositoryFiles, getFileContent } from './services/githubService';
+import { getAllCodeFiles, getFileContent, extractOwnerRepo } from './services/githubService';
 import { analyzeCode } from './services/aiService';
-import axios from 'axios';
 
 documentationQueue.process(async (job) => {
   console.log(`📋 Processing job ${job.id}`);
@@ -11,44 +10,40 @@ documentationQueue.process(async (job) => {
   const { jobId, githubUrl } = job.data;
   
   try {
-    // Update job status to processing
     await prisma.job.update({
       where: { id: jobId },
       data: { status: 'processing' },
     });
     
-    // Extract owner/repo from URL
-    const match = githubUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-    if (!match) throw new Error('Invalid GitHub URL');
-    
-    const [, owner, repo] = match;
-    
-    // Get repository files
+    // Extract owner/repo
+    const { owner, repo } = extractOwnerRepo(githubUrl);
     console.log(`📂 Fetching files from ${owner}/${repo}...`);
-    const files = await getRepositoryFiles(githubUrl);
     
-    // Filter for code files (skip tests, configs, etc.)
-    const codeFiles = files.filter(file => 
-      file.type === 'file' && 
-      (file.name.endsWith('.js') || 
-       file.name.endsWith('.ts') || 
-       file.name.endsWith('.jsx') ||
-       file.name.endsWith('.tsx')) &&
-      !file.name.includes('.test.') &&
-      !file.name.includes('.spec.')
-    );
+    // Get all code files recursively (max 3 levels deep)
+    const codeFiles = await getAllCodeFiles(owner, repo, '', 0, 3);
     
     console.log(`📄 Found ${codeFiles.length} code files to analyze`);
     
-    // Analyze first 5 files (for now, to avoid overwhelming the API)
-    const filesToAnalyze = codeFiles.slice(0, 5);
+    // Limit to first 10 files for now
+    const filesToAnalyze = codeFiles.slice(0, 10);
     const allDocs: any[] = [];
     
     for (const file of filesToAnalyze) {
       console.log(`🤖 Analyzing ${file.path}...`);
       
-      // Get file content
-      const content = await getFileContent(owner, repo, file.path);
+      // Get file content from download_url
+      if (!file.download_url) {
+        console.log(`⚠️  Skipping ${file.path} - no download URL`);
+        continue;
+      }
+      
+      const content = await getFileContent(file.download_url);
+      
+      // Skip very large files (>10KB for now)
+      if (content.length > 10000) {
+        console.log(`⚠️  Skipping ${file.path} - too large (${content.length} chars)`);
+        continue;
+      }
       
       // Generate documentation
       const docs = await analyzeCode(content, file.name);
@@ -59,21 +54,24 @@ documentationQueue.process(async (job) => {
       });
     }
     
-    // Save documentation to database
+    // Save documentation
     await prisma.documentation.create({
       data: {
         jobId,
-        content: { files: allDocs },
+        content: { 
+          repository: `${owner}/${repo}`,
+          filesAnalyzed: allDocs.length,
+          files: allDocs 
+        },
       },
     });
     
-    // Update job to completed
     await prisma.job.update({
       where: { id: jobId },
       data: { status: 'completed' },
     });
     
-    console.log(`✅ Job ${job.id} completed - analyzed ${filesToAnalyze.length} files`);
+    console.log(`✅ Job ${job.id} completed - analyzed ${allDocs.length} files`);
     
   } catch (error) {
     console.error(`❌ Job ${job.id} failed:`, error);

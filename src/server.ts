@@ -5,13 +5,18 @@ import prisma from './config/database';
 import { documentationQueue } from './config/queue';
 import { AppError, errorHandler } from './utils/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
+import { authenticate, optionalAuth } from './middleware/auth';
+import { apiLimiter, analyzeLimiter } from './middleware/rateLimiter';
+
 
 const app = express();
 
 app.use(express.json());
 app.use(cors());
 
-app.post('/api/analyze', asyncHandler(async (req:Request, res:Response) => {
+app.use('/api',apiLimiter)
+
+app.post('/api/analyze',analyzeLimiter, asyncHandler(async (req:Request, res:Response) => {
   const { url } = req.body;
   
   // Validation
@@ -52,7 +57,7 @@ app.post('/api/analyze', asyncHandler(async (req:Request, res:Response) => {
   });
 }));
 
-app.get('/api/jobs/:jobId', asyncHandler(async (req:Request, res:Response) => {
+app.get('/api/jobs/:jobId',optionalAuth, asyncHandler(async (req:Request, res:Response) => {
   const { jobId } = req.params;
 
   if(!jobId){
@@ -78,7 +83,7 @@ app.get('/api/jobs/:jobId', asyncHandler(async (req:Request, res:Response) => {
   });
 }));
 
-app.get('/api/docs/:jobId', asyncHandler(async (req:Request, res:Response) => {
+app.get('/api/docs/:jobId',optionalAuth, asyncHandler(async (req:Request, res:Response) => {
   const { jobId } = req.params;
   
   if(!jobId){
