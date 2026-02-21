@@ -1,4 +1,3 @@
-# ---- Build Stage ----
     FROM node:18-alpine AS builder
 
     WORKDIR /app
@@ -14,7 +13,7 @@
     RUN npx prisma generate
     RUN npm run build
     
-    # ---- Production Stage ----
+ 
     FROM node:18-alpine
     
     RUN apk add --no-cache openssl

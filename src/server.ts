@@ -7,12 +7,14 @@ import { AppError, errorHandler } from './utils/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
 import { authenticate, optionalAuth } from './middleware/auth';
 import { apiLimiter, analyzeLimiter } from './middleware/rateLimiter';
+import { requestLogger } from './middleware/requestLogger';
 
 
 const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.use(requestLogger)
 
 app.use('/api',apiLimiter)
 
